@@ -33,7 +33,7 @@ output_folder = output_dir+'psf_dataset/'
 #selected_id_SED_path = 'selected_id_SED.npy'
 
 # Number of cpus to use for parallelization
-n_cpus = 10 #verify that it doesn't reach the N of actual CPUs
+n_cpus = 32 #verify that it doesn't reach the N of actual CPUs
 
 # Save output prints to logfile
 old_stdout = sys.stdout
