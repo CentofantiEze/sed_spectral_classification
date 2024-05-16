@@ -194,19 +194,42 @@ def print_status(star_id, i, j):
 def chunker(seq, size):
     return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
+# Funcion to get mono PSFs
+def generate_multi_mono_PSF(PSF_toolkit, SED, n_bins=35):
+    """Generate varios monochromatic PSFs.
+
+    The wavelength space will be the Euclid VIS instrument band:
+    [550,900]nm and will be sampled in ``n_bins``.
+
+    """
+    # Calculate the feasible values of wavelength and the corresponding
+    # SED interpolated values
+    feasible_wv, SED_norm = PSF_toolkit.calc_SED_wave_values(SED, n_bins)
+    mono_psfs = []
+    stacked_psf = 0
+
+    # Generate the required monochromatic PSFs
+    for it in range(feasible_wv.shape[0]):
+        PSF_toolkit.generate_mono_PSF(lambda_obs=feasible_wv[it])
+        # Append the non-weighted mono PSF
+        mono_psfs.append( PSF_toolkit.get_psf())
+        stacked_psf += PSF_toolkit.get_psf() * SED_norm[it]
+
+    return mono_psfs, stacked_psf
+
 # Function to get one PSF
 def simulate_star(star_id, sim_PSF_toolkit_):
     i_,j_ = unwrap_id(star_id, n_cpus)
     sim_PSF_toolkit_[j_].set_z_coeffs(zks[star_id])
-    _psf = sim_PSF_toolkit_[j_].generate_poly_PSF(SED_list[star_id], n_bins)
-    # Change output parameters to get the super resolved PSF
-    sim_PSF_toolkit_[j_].output_Q = super_out_Q
-    sim_PSF_toolkit_[j_].output_dim = super_out_res
-    super_psf = sim_PSF_toolkit_[j_].generate_poly_PSF(SED_list[star_id], n_bins)
-    # Put back original parameters
-    sim_PSF_toolkit_[j_].output_Q = original_out_Q
-    sim_PSF_toolkit_[j_].output_dim = original_out_dim
-    return (star_id, _psf, zks[star_id], super_psf)
+    mono_psfs, _psf = generate_multi_mono_PSF(sim_PSF_toolkit_[j_],SED_list[star_id], n_bins)
+    # # Change output parameters to get the super resolved PSF
+    # sim_PSF_toolkit_[j_].output_Q = super_out_Q
+    # sim_PSF_toolkit_[j_].output_dim = super_out_res
+    # super_psf = sim_PSF_toolkit_[j_].generate_poly_PSF(SED_list[star_id], n_bins)
+    # # Put back original parameters
+    # sim_PSF_toolkit_[j_].output_Q = original_out_Q
+    # sim_PSF_toolkit_[j_].output_dim = original_out_dim
+    return (star_id, mono_psfs, _psf, zks[star_id])#, super_psf)
 
 # Measure time
 start_time = time.time()
@@ -214,21 +237,21 @@ start_time = time.time()
 index_i_list = []
 psf_i_list = []
 z_coef_i_list = []
-super_psf_i_list = []
+mono_psfs_i_list = []
 for batch in chunker(star_id_list, n_cpus):
     with parallel_backend("loky", inner_max_num_threads=1):
         results = Parallel(n_jobs=n_cpus, verbose=100)(delayed(simulate_star)(_star_id, sim_PSF_toolkit)
                                             for _star_id in batch)
-    index_batch,psf_batch,z_coef_batch,super_psf_batch = zip(*results)
+    index_batch, mono_psfs_batch, psf_batch,z_coef_batch = zip(*results)
     index_i_list.extend(index_batch)
     psf_i_list.extend(psf_batch)
     z_coef_i_list.extend(z_coef_batch)
-    super_psf_i_list.extend(super_psf_batch)
+    mono_psfs_i_list.extend(mono_psfs_batch)
 
 index = np.array(index_i_list)
 poly_psf = np.array( psf_i_list)
 zernike_coef = np.array(z_coef_i_list)
-super_psf = np.array(super_psf_i_list)
+mono_psfs = np.array(mono_psfs_i_list)
 
 end_time = time.time()
 print('\nAll stars generated in '+ str(end_time-start_time) +' seconds')
@@ -294,7 +317,7 @@ C_poly = error_field.polynomial_coeffs
 test_psf_dataset = {
     'stars' : poly_psf[tot_train_stars:, :, :],
     'noisy_stars': noisy_test_stars,
-    'super_res_stars' : super_psf[tot_train_stars:, :, :],
+    'mono_psfs' : mono_psfs[tot_train_stars:, :, :],
     'positions' : pos_np[tot_train_stars:, :],
     'SEDs' : SED_np[tot_train_stars:, :, :],
     'zernike_coef' : zernike_coef[tot_train_stars:, :],
@@ -338,7 +361,7 @@ for it_glob in range(len(n_star_list)):
     train_psf_dataset = {
         'stars' : poly_psf[:n_train_stars, :, :],
         'noisy_stars': noisy_train_stars[:n_train_stars, :, :],
-        'super_res_stars' : super_psf[:n_train_stars, :, :],
+        'mono_psfs' : mono_psfs[:n_train_stars, :, :],
         'positions' : pos_np[:n_train_stars, :],
         'SEDs' : SED_np[:n_train_stars, :, :],
         'zernike_coef' : zernike_coef[:n_train_stars, :],
