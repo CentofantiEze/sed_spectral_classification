@@ -89,7 +89,7 @@ output_folder = output_dir+'psf_dataset/'
 #selected_id_SED_path = 'selected_id_SED.npy'
 
 # Number of cpus to use for parallelization
-n_cpus = 5 #verify that it doesn't reach the N of actual CPUs
+n_cpus = 64 #verify that it doesn't reach the N of actual CPUs
 
 # Save output prints to logfile
 old_stdout = sys.stdout
@@ -102,10 +102,8 @@ dataset_id = 1
 dataset_id_str = '%03d'%(dataset_id)
 
 # This list must be in order from bigger to smaller
-# n_star_list = [10000, 2000, 500]
-# n_test_stars = 1000
-n_star_list = [100, 20, 5]
-n_test_stars = 10
+n_star_list = [10000, 2000, 500]
+n_test_stars = 1000
 
 # Total stars
 n_stars = n_star_list[0] + n_test_stars
