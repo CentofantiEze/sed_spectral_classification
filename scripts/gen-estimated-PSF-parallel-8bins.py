@@ -67,10 +67,10 @@ def simulate_star(star_id, sim_PSF_toolkit_):
     return (star_id, mono_psfs, _psf, zks[star_id])#, super_psf)
 
 # Paths
-# wf_psf_dir = '/feynman/work/dap/lcs/ec270266/wf-psf/'
-# output_dir = '/feynman/work/dap/lcs/ec270266/sed_spectral_classification/output/'
-wf_psf_dir = '/Users/ec270266/Documents/Phd/Euclid/dev/wf-psf/'
-output_dir = '/Users/ec270266/Documents/Phd/Euclid/dev/feature-sed-pred/sed_spectral_classification/output/'
+wf_psf_dir = '/feynman/work/dap/lcs/ec270266/wf-psf/'
+output_dir = '/feynman/work/dap/lcs/ec270266/sed_spectral_classification/output/'
+# wf_psf_dir = '/Users/ec270266/Documents/Phd/Euclid/dev/wf-psf/'
+# output_dir = '/Users/ec270266/Documents/Phd/Euclid/dev/feature-sed-pred/sed_spectral_classification/output/'
 # SED folder path
 SED_path = wf_psf_dir+'data/SEDs/save_SEDs/'
 # Reference dataset PATH
