@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name="psf_data_gen"
+#SBATCH --job-name="psf_est_gen"
 #SBATCH --mail-user=ezequiel.centofanti@cea.fr
-#SBATCH --mail-type=NONE
+#SBATCH --mail-type=END
 #SBATCH --partition=htc
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=64
@@ -21,7 +21,7 @@ set -x
 cd $WORK/sed_spectral_classification/scripts
 
 # Run code
-srun python gen-PSF-parallel-8bins.py
+srun python gen-estimated-PSF-parallel-8bins.py
 
 # Return exit code
 exit 0
