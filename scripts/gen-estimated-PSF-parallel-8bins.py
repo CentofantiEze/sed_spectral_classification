@@ -104,7 +104,8 @@ dataset_id_str = '%03d'%(dataset_id)
 # This list must be in order from bigger to smaller
 n_star_list = [10000, 2000, 500]
 n_test_stars = 1000
-
+# n_star_list = [100]
+# n_test_stars = 10
 # Total stars
 n_stars = n_star_list[0] + n_test_stars
 # Max train stars
@@ -113,6 +114,7 @@ tot_train_stars = n_star_list[0]
 # Parameters
 d_max = 4
 max_order = 66
+ZK_label = '_{}zks'.format(max_order)
 x_lims = [0, 1e3]
 y_lims = [0, 1e3]
 grid_points = [4, 4]
@@ -121,7 +123,7 @@ n_bins = 8
 oversampling_rate = 3.
 output_Q = 3.
 
-max_wfe_rms = 0.1
+# max_wfe_rms = 0.1
 output_dim = 32
 LP_filter_length = 2
 euclid_obsc = True
@@ -180,179 +182,129 @@ for it in range(n_stars):
 #     SED_list.append(concat_SED_wv)
 
 # Load and assign the C_poly matrix
-C_poly = train_dataset_ref['C_poly']
+C_poly = train_dataset_ref['C_poly'][:max_order,:]
 
 # Generate aproximated PSF model for each WFE error level
-req_wfe_rms = np.array([53, 13.5, 6.5, 2.65, 1.35]) * 1e-3
-desired_wfe_rms = np.array([40, 10, 5, 2, 1]) * 1e-3
+desired_wfe_rms = np.array([100, 50, 10, 5, 1, 0.5, 0.1]) * 1e-3
+desired_wfe_rms = np.array([5, 10]) * 1e-3
 
-wfe_rms, max_wfe_rms = req_wfe_rms[4-0], desired_wfe_rms[4-0]
+for wfe_rms in desired_wfe_rms:
+    print('##############################################')
+    print('Generating dataset for WFE RMS = {:.0e}'.format(wfe_rms))
+    print('##############################################')
+    # Initialize PSF simulator for each cpu available 
+    # (no euclid obscurations and wfr_rms init)
+    sim_PSF_toolkit = [PSFSimulator(
+        max_order=max_order,
+        max_wfe_rms=wfe_rms,
+        oversampling_rate=oversampling_rate,
+        output_Q=output_Q,
+        output_dim=output_dim,
+        pupil_diameter=pupil_diameter,
+        euclid_obsc=euclid_obsc,
+        LP_filter_length=LP_filter_length
+    ) for j in range(n_cpus)]
 
-print('##############################################')
-print('Generating dataset for WFE RMS = {:.0e}'.format(max_wfe_rms))
-print('##############################################')
-# Initialize PSF simulator for each cpu available 
-# (no euclid obscurations and wfr_rms init)
-sim_PSF_toolkit = [PSFSimulator(
-    max_order=max_order,
-    max_wfe_rms=wfe_rms,
-    oversampling_rate=oversampling_rate,
-    output_Q=output_Q,
-    output_dim=output_dim,
-    pupil_diameter=pupil_diameter,
-    euclid_obsc=euclid_obsc,
-    LP_filter_length=LP_filter_length
-) for j in range(n_cpus)]
+    obscurations = sim_PSF_toolkit[0].obscurations   
 
-obscurations = sim_PSF_toolkit[0].obscurations   
+    error_field = SpatialVaryingPSF(
+        psf_simulator=sim_PSF_toolkit[0],
+        d_max=d_max,
+        grid_points=grid_points,
+        max_order=max_order,
+        x_lims=x_lims,
+        y_lims=y_lims,
+        n_bins=n_bins,
+        lim_max_wfe_rms=wfe_rms,
+    )
 
-error_field = SpatialVaryingPSF(
-    psf_simulator=sim_PSF_toolkit[0],
-    d_max=d_max,
-    grid_points=grid_points,
-    max_order=max_order,
-    x_lims=x_lims,
-    y_lims=y_lims,
-    n_bins=n_bins,
-    lim_max_wfe_rms=wfe_rms,
-)
-error_field.polynomial_coeffs += C_poly
+    print('\nStar positions selected')
 
-print('\nStar positions selected')
+    # Compute zernikes for each star
+    zks = ZernikeHelper.calculate_zernike(pos_np[:,0], pos_np[:,1], x_lims, y_lims, d_max, error_field.polynomial_coeffs+C_poly).T
 
-# Compute zernikes for each star
-zks = ZernikeHelper.calculate_zernike(pos_np[:,0], pos_np[:,1], x_lims, y_lims, d_max, error_field.polynomial_coeffs).T
+    print('\nZernikes calculated')
 
-print('\nZernikes calculated')
+    #######################################
+    #            PARALELLIZED             #
+    #######################################
 
-#######################################
-#            PARALELLIZED             #
-#######################################
+    # Total number of stars
+    n_procs = n_stars
 
-# Total number of stars
-n_procs = n_stars
+    # Print some info
+    cpu_info = ' - Number of available CPUs: {}'.format(cpu_count())
+    cpu_use = ' - Number of selected CPUs: {}'.format(n_cpus)
+    proc_info = ' - Total number of processes: {}'.format(n_procs)
+    print(cpu_info)
+    print(cpu_use)
+    print(proc_info)
 
-# Print some info
-cpu_info = ' - Number of available CPUs: {}'.format(cpu_count())
-cpu_use = ' - Number of selected CPUs: {}'.format(n_cpus)
-proc_info = ' - Total number of processes: {}'.format(n_procs)
-print(cpu_info)
-print(cpu_use)
-print(proc_info)
+    # Generate star list
+    star_id_list = [id_ for id_ in range(n_stars)]
 
-# Generate star list
-star_id_list = [id_ for id_ in range(n_stars)]
+    # Measure time
+    start_time = time.time()
 
-# Measure time
-start_time = time.time()
+    index_i_list = []
+    psf_i_list = []
+    z_coef_i_list = []
+    mono_psfs_i_list = []
+    for batch in chunker(star_id_list, n_cpus):
+        with parallel_backend("loky", inner_max_num_threads=1):
+            results = Parallel(n_jobs=n_cpus, verbose=100)(delayed(simulate_star)(_star_id, sim_PSF_toolkit)
+                                                for _star_id in batch)
+        index_batch, mono_psfs_batch, psf_batch,z_coef_batch = zip(*results)
+        index_i_list.extend(index_batch)
+        psf_i_list.extend(psf_batch)
+        z_coef_i_list.extend(z_coef_batch)
+        mono_psfs_i_list.extend(mono_psfs_batch)
 
-index_i_list = []
-psf_i_list = []
-z_coef_i_list = []
-mono_psfs_i_list = []
-for batch in chunker(star_id_list, n_cpus):
-    with parallel_backend("loky", inner_max_num_threads=1):
-        results = Parallel(n_jobs=n_cpus, verbose=100)(delayed(simulate_star)(_star_id, sim_PSF_toolkit)
-                                            for _star_id in batch)
-    index_batch, mono_psfs_batch, psf_batch,z_coef_batch = zip(*results)
-    index_i_list.extend(index_batch)
-    psf_i_list.extend(psf_batch)
-    z_coef_i_list.extend(z_coef_batch)
-    mono_psfs_i_list.extend(mono_psfs_batch)
+    index = np.array(index_i_list)
+    poly_psf = np.array( psf_i_list)
+    zernike_coef = np.array(z_coef_i_list)
+    mono_psfs = np.array(mono_psfs_i_list)
 
-index = np.array(index_i_list)
-poly_psf = np.array( psf_i_list)
-zernike_coef = np.array(z_coef_i_list)
-mono_psfs = np.array(mono_psfs_i_list)
+    end_time = time.time()
+    print('\nAll stars generated in '+ str(end_time-start_time) +' seconds')
 
-end_time = time.time()
-print('\nAll stars generated in '+ str(end_time-start_time) +' seconds')
+    #######################################
+    #            END PARALLEL             #
+    #######################################
 
-#######################################
-#            END PARALLEL             #
-#######################################
+    # Add noise to generated train star PSFs and save datasets
 
-# Add noise to generated train star PSFs and save datasets
-
-# SNR varying randomly from snr_min to snr_max - shared over all WFE resolutions
-rand_SNR_train = (np.random.rand(tot_train_stars) * (snr_max-snr_min)) + snr_min
-# Copy the training stars
-train_stars = np.copy(poly_psf[:tot_train_stars, :, :])
-# Add Gaussian noise to the observations
-noisy_train_stars = np.stack([
-    add_noise(_im, desired_SNR=_SNR) 
-    for _im, _SNR in zip(train_stars, rand_SNR_train)], axis=0)
-# # Generate Gaussian noise patterns to be shared over all datasets (but not every star)
-# noisy_train_patterns = noisy_train_stars - train_stars
+    # SNR varying randomly from snr_min to snr_max - shared over all WFE resolutions
+    rand_SNR_train = (np.random.rand(tot_train_stars) * (snr_max-snr_min)) + snr_min
+    # Copy the training stars
+    train_stars = np.copy(poly_psf[:tot_train_stars, :, :])
+    # Add Gaussian noise to the observations
+    noisy_train_stars = np.stack([
+        add_noise(_im, desired_SNR=_SNR) 
+        for _im, _SNR in zip(train_stars, rand_SNR_train)], axis=0)
+    # # Generate Gaussian noise patterns to be shared over all datasets (but not every star)
+    # noisy_train_patterns = noisy_train_stars - train_stars
 
 
-# Add noise to generated test star PSFs and save datasets
+    # Add noise to generated test star PSFs and save datasets
 
-# SNR varying randomly from snr_min to snr_max - shared over all WFE resolutions
-rand_SNR_test = (np.random.rand(n_test_stars) * (snr_max-snr_min)) + snr_min
-# Copy the test stars
-test_stars = np.copy(poly_psf[tot_train_stars:, :, :])
-# Add Gaussian noise to the observations
-noisy_test_stars = np.stack([
-    add_noise(_im, desired_SNR=_SNR) 
-    for _im, _SNR in zip(test_stars, rand_SNR_test)], axis=0)
-# Generate Gaussian noise patterns to be shared over all datasets (but not every star)
-# noisy_test_patterns = noisy_test_stars - test_stars
-
-
-# Generate datasets
-# Generate numpy array from the SED list
-SED_np = np.array(SED_list)
-
-# Save only one test dataset
-# Build param dicitionary
-dataset_params = {
-    'd_max':d_max,
-    'max_order':max_order,
-    'x_lims':x_lims,
-    'y_lims':y_lims,
-    'grid_points':grid_points,
-    'n_bins':n_bins,
-    'max_wfe_rms':max_wfe_rms,
-    'oversampling_rate':oversampling_rate,
-    'output_Q':output_Q,
-    'output_dim':output_dim,
-    'LP_filter_length':LP_filter_length,
-    'pupil_diameter':pupil_diameter,
-    'euclid_obsc':euclid_obsc,
-    'n_stars':n_test_stars
-}
-
-# Save dataset C coefficient matrix (reproductible dataset)
-C_poly = error_field.polynomial_coeffs
-
-test_psf_dataset = {
-    'stars' : poly_psf[tot_train_stars:, :, :],
-    'noisy_stars': noisy_test_stars,
-    'mono_psfs' : mono_psfs[tot_train_stars:, :, :],
-    'positions' : pos_np[tot_train_stars:, :],
-    'SEDs' : SED_np[tot_train_stars:, :, :],
-    'zernike_coef' : zernike_coef[tot_train_stars:, :],
-    'C_poly' : C_poly,
-    'parameters': dataset_params,
-    'SED_ids':SED_id_list[tot_train_stars:],
-    'SNR': rand_SNR_test
-}
-
-np.save(
-    output_folder + 'test_' + str(n_test_stars) + '_stars_id_' + dataset_id_str + '_' + 
-    str(n_bins)+'bins'+SNR_label+'_rms_' + '{:.0e}'.format(max_wfe_rms)+'.npy',
-    test_psf_dataset,
-    allow_pickle=True
-)
+    # SNR varying randomly from snr_min to snr_max - shared over all WFE resolutions
+    rand_SNR_test = (np.random.rand(n_test_stars) * (snr_max-snr_min)) + snr_min
+    # Copy the test stars
+    test_stars = np.copy(poly_psf[tot_train_stars:, :, :])
+    # Add Gaussian noise to the observations
+    noisy_test_stars = np.stack([
+        add_noise(_im, desired_SNR=_SNR) 
+        for _im, _SNR in zip(test_stars, rand_SNR_test)], axis=0)
+    # Generate Gaussian noise patterns to be shared over all datasets (but not every star)
+    # noisy_test_patterns = noisy_test_stars - test_stars
 
 
+    # Generate datasets
+    # Generate numpy array from the SED list
+    SED_np = np.array(SED_list)
 
-# Save the different train datasets
-for it_glob in range(len(n_star_list)):
-
-    n_train_stars = n_star_list[it_glob]
-
+    # Save only one test dataset
     # Build param dicitionary
     dataset_params = {
         'd_max':d_max,
@@ -361,36 +313,83 @@ for it_glob in range(len(n_star_list)):
         'y_lims':y_lims,
         'grid_points':grid_points,
         'n_bins':n_bins,
-        'max_wfe_rms':max_wfe_rms,
+        'max_wfe_rms':wfe_rms,
         'oversampling_rate':oversampling_rate,
         'output_Q':output_Q,
         'output_dim':output_dim,
         'LP_filter_length':LP_filter_length,
         'pupil_diameter':pupil_diameter,
         'euclid_obsc':euclid_obsc,
-        'n_stars':n_train_stars
+        'n_stars':n_test_stars
     }
 
-    train_psf_dataset = {
-        'stars' : poly_psf[:n_train_stars, :, :],
-        'noisy_stars': noisy_train_stars[:n_train_stars, :, :],
-        'mono_psfs' : mono_psfs[:n_train_stars, :, :],
-        'positions' : pos_np[:n_train_stars, :],
-        'SEDs' : SED_np[:n_train_stars, :, :],
-        'zernike_coef' : zernike_coef[:n_train_stars, :],
-        'C_poly' : C_poly,
+    test_psf_dataset = {
+        'stars' : poly_psf[tot_train_stars:, :, :],
+        'noisy_stars': noisy_test_stars,
+        'mono_psfs' : mono_psfs[tot_train_stars:, :, :],
+        'positions' : pos_np[tot_train_stars:, :],
+        'SEDs' : SED_np[tot_train_stars:, :, :],
+        'zernike_coef' : zernike_coef[tot_train_stars:, :],
+        'C_poly' : train_dataset_ref['C_poly'],
+        'C_poly_err' : C_poly+error_field.polynomial_coeffs,
         'parameters': dataset_params,
-        'SED_ids' : SED_id_list[:n_train_stars],
-        'SNR': rand_SNR_train
+        'SED_ids':SED_id_list[tot_train_stars:],
+        'SNR': rand_SNR_test
     }
-
 
     np.save(
-        output_folder + 'train_' + str(n_train_stars) + '_stars_id_' + dataset_id_str + '_' + 
-        str(n_bins)+'bins'+SNR_label+'_rms_' + '{:.0e}'.format(max_wfe_rms)+'.npy',
-        train_psf_dataset,
+        output_folder + 'test_' + str(n_test_stars) + '_stars_id_' + dataset_id_str + '_' + 
+        str(n_bins)+'bins'+ZK_label+'_rms_' + '{:.0e}'.format(wfe_rms)+'.npy',
+        test_psf_dataset,
         allow_pickle=True
     )
+
+
+
+    # Save the different train datasets
+    for it_glob in range(len(n_star_list)):
+
+        n_train_stars = n_star_list[it_glob]
+
+        # Build param dicitionary
+        dataset_params = {
+            'd_max':d_max,
+            'max_order':max_order,
+            'x_lims':x_lims,
+            'y_lims':y_lims,
+            'grid_points':grid_points,
+            'n_bins':n_bins,
+            'max_wfe_rms':wfe_rms,
+            'oversampling_rate':oversampling_rate,
+            'output_Q':output_Q,
+            'output_dim':output_dim,
+            'LP_filter_length':LP_filter_length,
+            'pupil_diameter':pupil_diameter,
+            'euclid_obsc':euclid_obsc,
+            'n_stars':n_train_stars
+        }
+
+        train_psf_dataset = {
+            'stars' : poly_psf[:n_train_stars, :, :],
+            'noisy_stars': noisy_train_stars[:n_train_stars, :, :],
+            'mono_psfs' : mono_psfs[:n_train_stars, :, :],
+            'positions' : pos_np[:n_train_stars, :],
+            'SEDs' : SED_np[:n_train_stars, :, :],
+            'zernike_coef' : zernike_coef[:n_train_stars, :],
+            'C_poly' : train_dataset_ref['C_poly'],
+            'C_poly_err' : C_poly+error_field.polynomial_coeffs,
+            'parameters': dataset_params,
+            'SED_ids' : SED_id_list[:n_train_stars],
+            'SNR': rand_SNR_train
+        }
+
+
+        np.save(
+            output_folder + 'train_' + str(n_train_stars) + '_stars_id_' + dataset_id_str + '_' + 
+            str(n_bins)+'bins'+ZK_label+'_rms_' + '{:.0e}'.format(wfe_rms)+'.npy',
+            train_psf_dataset,
+            allow_pickle=True
+        )
 
 print('\nDone!')
 

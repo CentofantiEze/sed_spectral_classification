@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="psf_est_gen"
+#SBATCH --job-name="psf-est-gen"
 #SBATCH --mail-user=ezequiel.centofanti@cea.fr
 #SBATCH --mail-type=END
 #SBATCH --partition=htc
@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=4G
-#SBATCH --output=psf_est_gen-%j.log
+#SBATCH --output=psf-est-gen-%j.log
 
 # Activate conda environment
 module load anaconda
