@@ -161,3 +161,6 @@ cython_debug/
 
 # Ignore Mac specific hidden files
 .DS_Store
+
+# Numpy files
+.npy
