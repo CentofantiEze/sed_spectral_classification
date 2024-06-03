@@ -47,7 +47,7 @@ dataset_id_str = '%03d'%(dataset_id)
 
 # This list must be in order from bigger to smaller
 n_star_list = [12000, 2000, 1000, 500, 200, 100, 50]
-n_test_stars = 10
+n_test_stars = 1000
 
 # Total stars
 n_stars = n_star_list[0] + n_test_stars
