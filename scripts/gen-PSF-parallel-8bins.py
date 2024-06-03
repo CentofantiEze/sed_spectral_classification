@@ -42,12 +42,13 @@ sys.stdout = log_file
 print('Starting the log file.')
 
 # Dataset ID
-dataset_id = 1
+dataset_id = 2
 dataset_id_str = '%03d'%(dataset_id)
 
 # This list must be in order from bigger to smaller
-n_star_list = [10000, 2000, 500]
-n_test_stars = 1000
+# n_star_list = [12000, 2000, 1000, 500, 200, 100, 50]
+n_star_list = [12, 2]
+n_test_stars = 10
 
 # Total stars
 n_stars = n_star_list[0] + n_test_stars
@@ -56,22 +57,22 @@ tot_train_stars = n_star_list[0]
 
 # Parameters
 d_max = 4
-max_order = 66
+max_order = 45
 x_lims = [0, 1e3]
 y_lims = [0, 1e3]
-grid_points = [4, 4]
+grid_points = [5, 5]
 n_bins = 8
 
 oversampling_rate = 3.
 output_Q = 3.
 
-max_wfe_rms = 0.1
+max_wfe_rms = 0.05
 output_dim = 32
 LP_filter_length = 2
 euclid_obsc = True
 
-snr_max = 50
-snr_min = 10
+snr_max = 110
+snr_min = 20
 SNR_label = ''
 
 # Values for getting 3xEuclid_resolution PSFs outputs.
@@ -119,20 +120,18 @@ stellar_lambdas = np.load(SED_path + 'lambdas.npy', allow_pickle=True)
 # train_dataset_ref = np.load(reference_data+ref_train, allow_pickle=True)[()]
 # test_dataset_ref = np.load(reference_data+ref_test, allow_pickle=True)[()]
 
-'''
-# Load all the stars positions
-pos_np = np.vstack((train_dataset_ref['positions'],test_dataset_ref['positions']))
+# # Load all the stars positions
+# pos_np = np.vstack((train_dataset_ref['positions'],test_dataset_ref['positions']))
 
-# Assign preselected SEDs
-selected_id_SED = np.load(reference_data+'selected_id_SED.npy', allow_pickle=True)
-SED_list = []
-for it in range(n_stars):
-    concat_SED_wv = np.concatenate((
-        stellar_lambdas.reshape(-1,1),
-        stellar_SEDs[selected_id_SED[it],:].reshape(-1,1)
-    ), axis=1)
-    SED_list.append(concat_SED_wv)
-'''
+# # Assign preselected SEDs
+# selected_id_SED = np.load(reference_data+'selected_id_SED.npy', allow_pickle=True)
+# SED_list = []
+# for it in range(n_stars):
+#     concat_SED_wv = np.concatenate((
+#         stellar_lambdas.reshape(-1,1),
+#         stellar_SEDs[selected_id_SED[it],:].reshape(-1,1)
+#     ), axis=1)
+#     SED_list.append(concat_SED_wv)
 
 # Choose the locations randomly
 pos_np = np.random.rand(n_stars, 2)
@@ -155,7 +154,22 @@ for it in range(n_stars):
 # C_poly = train_dataset_ref['C_poly']
 # error_field.polynomial_coeffs = C_poly
 
-print('\nStar positions selected')
+# Compute n-bins SEDs with their corresponding wavelengths
+stellar_SEDs_n_lambdas = np.array([np.concatenate((
+    stellar_lambdas.reshape(-1,1),
+    stellar_SED.reshape(-1,1)), axis=1) for stellar_SED in stellar_SEDs])
+
+packed_sed_elems = []
+
+for sed_ in stellar_SEDs_n_lambdas:
+    feasible_wv, SED_norm = sim_PSF_toolkit[0].calc_SED_wave_values(sed_, n_bins)
+    feasible_N = [sim_PSF_toolkit[0].feasible_N(feasible_wv_elem) for feasible_wv_elem in feasible_wv]
+
+    packed_sed_elems.append([feasible_N, feasible_wv, SED_norm])
+
+packed_sed_elems = np.array(packed_sed_elems)
+
+print('\nStars selected')
 
 # Compute zernikes for each star
 zks = ZernikeHelper.calculate_zernike(pos_np[:,0], pos_np[:,1], x_lims, y_lims, d_max, error_field.polynomial_coeffs).T
@@ -320,6 +334,7 @@ test_psf_dataset = {
     'mono_psfs' : mono_psfs[tot_train_stars:, :, :],
     'positions' : pos_np[tot_train_stars:, :],
     'SEDs' : SED_np[tot_train_stars:, :, :],
+    'packed_SEDs' : packed_sed_elems,
     'zernike_coef' : zernike_coef[tot_train_stars:, :],
     'C_poly' : C_poly,
     'parameters': dataset_params,
@@ -364,6 +379,7 @@ for it_glob in range(len(n_star_list)):
         'mono_psfs' : mono_psfs[:n_train_stars, :, :],
         'positions' : pos_np[:n_train_stars, :],
         'SEDs' : SED_np[:n_train_stars, :, :],
+        'packed_SEDs' : packed_sed_elems,
         'zernike_coef' : zernike_coef[:n_train_stars, :],
         'C_poly' : C_poly,
         'parameters': dataset_params,
