@@ -5,7 +5,7 @@ metrics:
   saved_training_cycle: 2
   # Metrics-only run: Specify model_params for a pre-trained model else leave blank if running training + metrics
   # Specify path to Parent Directory of Trained Model 
-  trained_model_path: 
+  trained_model_path: /Users/ec270266/Documents/Phd/Euclid/dev/feature-sed-pred/sed_spectral_classification/psf_model/pretrained_model/
   # Name of the Trained Model Config file stored in config sub-directory in the trained_model_path parent directory
   trained_model_config: 
   #Evaluate the monchromatic RMSE metric.

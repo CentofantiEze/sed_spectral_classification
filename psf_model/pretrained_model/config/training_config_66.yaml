@@ -38,7 +38,7 @@ training:
     # CCD missalignments input file path
     # This should be refactored. It might be better to directly look for the `tiles.npy` in 
     # the `data/assets/` directory in the repository
-    ccd_missalignments_input_path: /gpfswork/rech/ynx/commun/ccd_missalignments/tiles.npy
+    ccd_missalignments_input_path: /Users/ec270266/Documents/Phd/Euclid/dev/physical_layer/data/CCD_missalignments/tiles.npy
 
     # Boolean to define if we use sample weights based on the noise standard deviation estimation
     use_sample_weights: True 

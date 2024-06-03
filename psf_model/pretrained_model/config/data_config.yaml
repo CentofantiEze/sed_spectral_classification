@@ -2,7 +2,7 @@
 data:
   training:
     # Specify directory path to training dataset
-    data_dir: /gpfswork/rech/ynx/uds36vp/repos/sed_spectral_classification/output/psf_dataset/
+    data_dir: /Users/ec270266/Documents/Phd/Euclid/dev/feature-sed-pred/sed_spectral_classification/output/psf_dataset/
     # Provide name of training dataset
     file: train_2000_stars_id_001_8bins.npy
     # if training data set file does not exist, generate a new one by setting values below
@@ -28,7 +28,7 @@ data:
       n_stars: 2000
   test:
     # Specify directory path to training dataset
-    data_dir: /gpfswork/rech/ynx/uds36vp/repos/sed_spectral_classification/output/psf_dataset/
+    data_dir: /Users/ec270266/Documents/Phd/Euclid/dev/feature-sed-pred/sed_spectral_classification/output/psf_dataset/
     # Provide name of test dataset
     file: test_1000_stars_id_001_8bins.npy
     # If test data set file not provided produce a new one
