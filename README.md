@@ -1,8 +1,10 @@
 # SED Spectral Classification
 
-Classify spectra of stars from the polychromatic star observations into 13 star types. Take into account the spectral variation of the telescope's PSF for the classification. 
+Classify spectral type of stars from single wide-band observations. 
+The PSF-aware classifier takes into account the spectral variation of the telescope's PSF for breaking the degeneracy between the stellar type and the PSF size, hence enhancing the classification accuracy. 
 
-Three different classifiers are tested and contrasted:
+---
+### Spectral classification models
 - PCA+MLP classifier.
 - CNN+MLP classifier.
 - SVM+PSF classifier. 
