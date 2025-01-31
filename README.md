@@ -1,4 +1,4 @@
-[![arXiv:2501.16151](https://img.shields.io/badge/astro--ph.IM-arXiv%3A2203.04908-B31B1B.svg)](https://arxiv.org/abs/2501.16151) [![License](https://img.shields.io/badge/License-MIT-brigthgreen.svg)](https://github.com/CentofantiEze/sed_spectral_classification/blob/main/LICENSE)
+[![arXiv:2501.16151](https://img.shields.io/badge/astro--ph.IM-arXiv%3A2203.04908-B31B1B.svg)](https://arxiv.org/abs/2501.16151) [![License](https://img.shields.io/badge/License-MIT-brigthgreen.svg)](https://github.com/CentofantiEze/sed_spectral_classification/blob/main/LICENSE) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14780747.svg)](https://doi.org/10.5281/zenodo.14780747)
 
 # SED Spectral Classification
 Spectral star classifier from single wide-band images. The classifiers were trained and tested with simulated star images.
@@ -23,7 +23,7 @@ The [SVM+PSF](https://github.com/CentofantiEze/sed_spectral_classification/blob/
 | **SVM+PSFGT** | **0.546** | **0.549** | **0.910**        |
 
 ## Data
-The star images used for training and testing the classifiers as well as the PSF models, the trained models, and the results are available in [Zenodo]().
+The star images used for training and testing the classifiers as well as the PSF models, the trained models, and the results are available in [Zenodo](https://doi.org/10.5281/zenodo.14780747).
 
 The data is organised as follows:
 ```
