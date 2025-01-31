@@ -164,3 +164,7 @@ cython_debug/
 
 # Numpy files
 *.npy
+
+# Data files
+sed_spectral_classification_data/
+psf_model/
