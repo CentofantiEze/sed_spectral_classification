@@ -23,7 +23,7 @@ The [SVM+PSF](https://github.com/CentofantiEze/sed_spectral_classification/blob/
 | **SVM+PSFGT** | **0.546** | **0.549** | **0.910**        |
 
 ## Data
-The star images used for training and testing the classifiers as well as the PSF models is available at [Zenodo]().
+The star images used for training and testing the classifiers as well as the PSF models, the trained models, and the results are available in [Zenodo]().
 
 The data is organised as follows:
 ```
@@ -33,6 +33,8 @@ datasets/
 ├── Approximated_PSF_datasets/
 └── Extra_stars_datasets/
 
+classification_metrics/
+
 PSF_models/
 ├── checkpoint/
 ├── metrics/
@@ -40,7 +42,7 @@ PSF_models/
 └── psf_model/
 
 Final_PSF_improvement/
-└── Metrics/
+└── metrics/
 ```
 
 ## Project outline
